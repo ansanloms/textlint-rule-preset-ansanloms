@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: deno
+    directories:
+      - "/"
+      - "/examples"
+    schedule:
+      interval: weekly
+    # CI requires the version pins in / and /examples to match, so group
+    # updates by dependency name to bump both directories in a single PR.
+    groups:
+      deno-dependencies:
+        group-by: dependency-name
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

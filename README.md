@@ -1,1 +1,214 @@
 # textlint-rule-preset-ansanloms
+
+以下 5 つの textlint preset / rule パッケージの `rules` / `rulesConfig` を
+1 段にフラット化し、`ansanloms/openapi-template` の `.textlintrc.js` で
+使っていた options 上書きをあらかじめ適用した textlint preset。
+
+- [textlint-rule-preset-ja-technical-writing](https://github.com/textlint-ja/textlint-rule-preset-ja-technical-writing)
+- [textlint-rule-preset-ja-spacing](https://github.com/textlint-ja/textlint-rule-preset-ja-spacing)
+- [textlint-rule-preset-jtf-style](https://github.com/textlint-ja/textlint-rule-preset-JTF-style)
+- [@textlint-ja/textlint-rule-preset-ai-writing](https://github.com/textlint-ja/textlint-rule-preset-ai-writing)
+- [@proofdict/textlint-rule-proofdict](https://github.com/proofdict/proofdict/tree/master/packages/@proofdict/textlint-rule-proofdict)
+
+textlint は preset の入れ子 (ある preset の `rules` の中に別の preset を書くこと)
+をサポートしないため、この preset はビルド時ではなく `index.ts` の中で
+上記 5 パッケージの `rules` / `rulesConfig` を展開し、1 つの
+`{ rules, rulesConfig }` として export する。
+
+deno で開発し、npm / JSR には publish しない。タグ打ちした `index.ts` を
+jsDelivr 経由で直接 import して利用する (「使い方」参照)。
+
+## 含まれるルール
+
+フラット化後のルール数は 77 個 (ja-technical-writing 23 + ja-spacing 11 +
+jtf-style 37 + ai-writing 5 + proofdict 1)。個々のルールの説明は各パッケージの
+リポジトリを参照。
+
+この preset で `rulesConfig` に加えている options 上書きは次のとおり。
+
+| preset               | ルール                                 | 上書き内容                                                                                   |
+| -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| ja-technical-writing | `sentence-length`                      | `{ max: 600 }`                                                                               |
+| ja-technical-writing | `max-kanji-continuous-len`             | `{ max: 15 }`                                                                                |
+| ja-technical-writing | `no-mix-dearu-desumasu`                | `{ preferInBody: "である", preferInHeader: "である", preferInList: "である", strict: true }` |
+| ja-technical-writing | `ja-no-weak-phrase`                    | `false` (無効化)                                                                             |
+| ja-technical-writing | `no-doubled-joshi`                     | `false` (無効化)                                                                             |
+| ja-technical-writing | `ja-no-mixed-period`                   | `{ forceAppendPeriod: true }`                                                                |
+| ja-spacing           | `ja-space-between-half-and-full-width` | `{ space: "always" }`                                                                        |
+| ja-spacing           | `ja-space-around-code`                 | `{ before: true, after: true }`                                                              |
+| ja-spacing           | `ja-space-around-link`                 | `{ before: true, after: true }`                                                              |
+| jtf-style            | `1.1.3.箇条書き`                       | `false` (無効化)                                                                             |
+| jtf-style            | `2.1.5.カタカナ`                       | `true` (有効化)                                                                              |
+| jtf-style            | `3.1.1.全角文字と半角文字の間`         | `false` (無効化)                                                                             |
+| jtf-style            | `4.2.6.ハイフン(-)`                    | `false` (無効化)                                                                             |
+| jtf-style            | `4.2.7.コロン(：)`                     | `false` (無効化)                                                                             |
+| jtf-style            | `4.3.1.丸かっこ（）`                   | `false` (無効化)                                                                             |
+| jtf-style            | `4.3.2.大かっこ［］`                   | `false` (無効化)                                                                             |
+| jtf-style            | `4.3.7.山かっこ<>`                     | `false` (無効化)                                                                             |
+| proofdict            | `proofdict`                            | `{ dictURL: "https://azu.github.io/proof-dictionary/", autoUpdateInterval: 1000 }`           |
+
+`ai-tech-writing-guideline` は ai-writing 側の既定で `{ severity: "info" }` だが、
+このルールは textlint の severity 指定が効かない実装 (report に
+`TextlintRuleError` ではなく plain object を渡す) のため、実際には error
+として報告される。advisory 扱いにしたい場合は利用側で
+`"ai-tech-writing-guideline": false` として無効化する。
+
+`proofdict` の元設定 (openapi-template) には消費側 cwd 相対の `dictGlob`
+(独自辞書ファイルの指定) も含まれていたが、preset 側は消費側のファイル構成に
+依存できないため、この preset には含めない。必要な場合は利用側で options を
+丸ごと置換して追加する (「設定の上書き」参照)。
+
+## 使い方 (Deno)
+
+textlint はルールパッケージを `require.resolve` で解決し、import map
+(`deno.json` の `imports`) を見ない。そのため deno の import map で疑似的に
+`textlint-rule-preset-ansanloms` という名前を用意しても textlint 側からは
+見つけられない。この preset は `--rules-base-directory <絶対パス>`
+で指定したディレクトリの下に `textlint-rule-preset-ansanloms/` という
+実ディレクトリ (`package.json` + `index.js`) を置くことで解決させる。
+`--rules-base-directory` に相対パスを渡すと `./` が落ちて裸のパッケージ名
+として扱われ、`== No rules found, textlint hasn't done anything ==` と
+表示されて終了コード 1 で終わる。このメッセージはパスが原因であることを
+示さないため、必ず絶対パスを渡すこと。
+
+消費側の `deno.json` に、この preset が依存する 5 パッケージと同じバージョン
+指定、およびこの preset 自体の import map エントリを追加する。この 5
+パッケージのバージョンはこの preset の `deno.json` のバージョン指定と一致
+させる必要がある。消費側で異なるバージョンを指定した場合、フラット化される
+ルール一覧は消費側のバージョンに従うことになり、この preset 側で存在しなく
+なったルールへの options 上書きは textlint 側でエラーにならず黙って無視
+される。
+
+```json
+{
+  "imports": {
+    "textlint": "npm:textlint@15.8.0",
+    "textlint-rule-preset-ja-technical-writing": "npm:textlint-rule-preset-ja-technical-writing@12.0.2",
+    "textlint-rule-preset-ja-spacing": "npm:textlint-rule-preset-ja-spacing@3.0.3",
+    "textlint-rule-preset-jtf-style": "npm:textlint-rule-preset-jtf-style@3.0.3",
+    "@textlint-ja/textlint-rule-preset-ai-writing": "npm:@textlint-ja/textlint-rule-preset-ai-writing@1.7.0",
+    "@proofdict/textlint-rule-proofdict": "npm:@proofdict/textlint-rule-proofdict@3.1.2",
+    "@ansanloms/textlint-rule-preset-ansanloms": "https://cdn.jsdelivr.net/gh/ansanloms/textlint-rule-preset-ansanloms@0.0.1/index.ts"
+  }
+}
+```
+
+`textlint/textlint-rule-preset-ansanloms/package.json`:
+
+```json
+{
+  "name": "textlint-rule-preset-ansanloms",
+  "version": "0.0.0",
+  "main": "index.js",
+  "type": "module"
+}
+```
+
+`textlint/textlint-rule-preset-ansanloms/index.js`:
+
+```js
+export { default } from "@ansanloms/textlint-rule-preset-ansanloms";
+```
+
+`.textlintrc.js`:
+
+```js
+module.exports = {
+  rules: {
+    "preset-ansanloms": true,
+  },
+};
+```
+
+textlint を実行するタスク (`deno.json`) では `--rules-base-directory` に
+上記の `textlint/` ディレクトリを絶対パスで渡す。
+
+```json
+{
+  "tasks": {
+    "textlint": {
+      "description": "Run textlint command",
+      "command": "deno --quiet run --allow-env --allow-read --allow-sys --allow-write --allow-net textlint --rules-base-directory $INIT_CWD/textlint"
+    }
+  }
+}
+```
+
+`$INIT_CWD` は `deno task` を起動したディレクトリなので、このタスクは
+プロジェクトルート (`deno.json` のあるディレクトリ) から実行すること。
+サブディレクトリから起動すると rules base の解決に失敗する。
+
+この preset を import すると、import した時点で消費側の作業ディレクトリに
+`.cache/` ディレクトリ (proofdict が使う `kvs-node-localstorage` の保存先) が
+作成されるため、利用側の `.gitignore` に `.cache/` を追加すること。
+
+具体例は `examples/` を参照。
+
+## 設定の上書き
+
+textlint はユーザ設定側の options を preset の既定値と「マージ」ではなく
+「置換」で適用する。個別ルールの options を上書きしたい場合は、
+`.textlintrc.js` の `rules` にそのルールの options を丸ごと書き直す。
+
+たとえば `proofdict` に独自辞書 (`dictGlob`) を追加しつつ `dictURL` は
+維持し、`no-doubled-joshi` を再度有効化する場合は次のようになる。
+
+```js
+module.exports = {
+  rules: {
+    "preset-ansanloms": {
+      proofdict: {
+        dictURL: "https://azu.github.io/proof-dictionary/",
+        autoUpdateInterval: 1000,
+        dictGlob: "./dict/*.yaml",
+      },
+      "no-doubled-joshi": {},
+    },
+  },
+};
+```
+
+`proofdict` は `dictGlob` だけを追記するのではなく `dictURL` /
+`autoUpdateInterval` も含めて書き直している点に注意。置換なので、
+書かなかったフィールドはこの preset の既定値ではなく単に消える。
+
+`no-doubled-joshi` のようにこの preset が `false` (無効化) にしている
+ルールを再有効化する場合、`true` ではなく options オブジェクト (既定値で
+よければ `{}`) を渡す必要がある。textlint の config-loader はユーザ設定側の
+`true` を preset 側の `rulesConfig` の値 (ここでは `false`) に置き換えて
+しまうため、`true` を書いても無効化されたままになる。
+
+## 開発
+
+```sh
+deno task test    # テスト (coverage 付き)
+deno task check   # 型チェック
+deno task lint    # deno lint && deno fmt --check
+deno task fix     # deno lint --fix && deno fmt
+```
+
+外部依存は `deno.json` の `imports` で管理する。Dependabot が `deno.json` と
+`deno.lock` を更新する。CI では `deno.json` と `examples/deno.json` の 5
+パッケージのバージョン指定が一致していること、README 中の jsDelivr
+URL のバージョンが `deno.json` の `version` と一致していること、および
+この README の「使い方 (Deno)」にある消費側の import map の例が
+`deno.json` の 5 パッケージと同じバージョン指定を含んでいることをあわせて
+チェックする。
+
+## リリース手順
+
+1. `deno.json` の `version` を更新する。同時に、この README の「使い方
+   (Deno)」の import map の例にある
+   `@ansanloms/textlint-rule-preset-ansanloms` の jsDelivr URL
+   (`@<バージョン>/index.ts`) も同じバージョンに更新し、まとめてコミットする。
+   古いバージョンのまま残すと、コピー & ペーストした利用者が古いタグを
+   参照し続けることになる。
+2. 同じ値でタグを打って push する。
+
+タグを打つと jsDelivr の `@<バージョン>` 指定 (上記の import map 参照)
+から新しいバージョンの `index.ts` を取得できるようになる。この preset は
+npm / JSR に publish せず、build も行わないため release ワークフローは無い。
+
+## ライセンス
+
+MIT

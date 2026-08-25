@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+      - run: deno ci
+      - run: deno task lint
+      - run: deno task check
+      - run: deno task test
+      - name: Smoke test with examples
+        working-directory: examples
+        run: |
+          deno ci
+          deno lint
+          deno fmt --check
+          deno task textlint . -f json > result.json || true
+          jq -e '[.[] | .messages[] | select(.ruleId == "ansanloms/no-mix-dearu-desumasu")] | length > 0' result.json
+          jq -e '[.[] | .messages[] | select(.ruleId == "ansanloms/proofdict")] | length > 0' result.json
+      - name: Verify lockfiles are unchanged
+        run: git diff --exit-code deno.lock examples/deno.lock
+      - name: Verify version pins and README are in sync
+        shell: bash
+        run: |
+          diff <(jq -S '.imports | with_entries(select((.key | test("textlint-rule-preset|textlint-rule-proofdict")) and (.key | startswith("@ansanloms/") | not)))' deno.json) \
+               <(jq -S '.imports | with_entries(select((.key | test("textlint-rule-preset|textlint-rule-proofdict")) and (.key | startswith("@ansanloms/") | not)))' examples/deno.json)
+          version="$(jq -r .version deno.json)"
+          grep -Fq "textlint-rule-preset-ansanloms@${version}/index.ts" README.md
+          ! grep -E 'textlint-rule-preset-ansanloms@[^/]+/index\.ts' README.md | grep -Fv "@${version}/index.ts"
+          jq -r '.imports | to_entries[] | select((.key | test("textlint-rule-preset|textlint-rule-proofdict")) and (.key | startswith("@ansanloms/") | not)) | "\"\(.key)\": \"\(.value)\""' deno.json \
+            | while IFS= read -r line; do grep -Fq -- "$line" README.md || { echo "README.md is missing pin: $line"; exit 1; }; done
