@@ -1,3 +1,5 @@
+// Generated from index.ts by `deno task build`. Do not edit; edit index.ts and rebuild.
+
 // textlint は preset の入れ子 (preset の rules/rulesConfig の中に別の preset を書くこと) を
 // サポートしないため、5 つの既存 textlint preset / rule パッケージの rules / rulesConfig を
 // この preset の直下へ 1 段にフラット化する。
@@ -10,11 +12,11 @@
 // この preset を利用する側で個別ルールの options を上書きしたい場合は、
 // 該当ルールの options を丸ごと書き直す必要がある (README の「設定の上書き」参照)。
 
-import jaTechMod from "textlint-rule-preset-ja-technical-writing";
-import jaSpacingMod from "textlint-rule-preset-ja-spacing";
-import jtfMod from "textlint-rule-preset-jtf-style";
-import aiWritingMod from "@textlint-ja/textlint-rule-preset-ai-writing";
-import proofdictMod from "@proofdict/textlint-rule-proofdict";
+import jaTechMod from "npm:textlint-rule-preset-ja-technical-writing@12.0.2";
+import jaSpacingMod from "npm:textlint-rule-preset-ja-spacing@3.0.3";
+import jtfMod from "npm:textlint-rule-preset-jtf-style@3.0.3";
+import aiWritingMod from "npm:@textlint-ja/textlint-rule-preset-ai-writing@1.7.0";
+import proofdictMod from "npm:@proofdict/textlint-rule-proofdict@3.1.2";
 
 type PresetModule = {
   rules: Record<string, unknown>;

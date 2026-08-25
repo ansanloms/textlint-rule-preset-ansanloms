@@ -20,6 +20,11 @@ jobs:
       - run: deno ci
       - run: deno task lint
       - run: deno task check
+      - run: deno task build
+      - name: Verify dist/index.ts is up to date
+        run: |
+          git diff --exit-code dist/index.ts
+          test -z "$(git status --porcelain --untracked-files=all dist)"
       - run: deno task test
       - name: Smoke test with examples
         working-directory: examples
@@ -32,13 +37,9 @@ jobs:
           jq -e '[.[] | .messages[] | select(.ruleId == "ansanloms/proofdict")] | length > 0' result.json
       - name: Verify lockfiles are unchanged
         run: git diff --exit-code deno.lock examples/deno.lock
-      - name: Verify version pins and README are in sync
+      - name: Verify README version is in sync
         shell: bash
         run: |
-          diff <(jq -S '.imports | with_entries(select((.key | test("textlint-rule-preset|textlint-rule-proofdict")) and (.key | startswith("@ansanloms/") | not)))' deno.json) \
-               <(jq -S '.imports | with_entries(select((.key | test("textlint-rule-preset|textlint-rule-proofdict")) and (.key | startswith("@ansanloms/") | not)))' examples/deno.json)
           version="$(jq -r .version deno.json)"
-          grep -Fq "textlint-rule-preset-ansanloms@${version}/index.ts" README.md
-          ! grep -E 'textlint-rule-preset-ansanloms@[^/]+/index\.ts' README.md | grep -Fv "@${version}/index.ts"
-          jq -r '.imports | to_entries[] | select((.key | test("textlint-rule-preset|textlint-rule-proofdict")) and (.key | startswith("@ansanloms/") | not)) | "\"\(.key)\": \"\(.value)\""' deno.json \
-            | while IFS= read -r line; do grep -Fq -- "$line" README.md || { echo "README.md is missing pin: $line"; exit 1; }; done
+          grep -Fq "textlint-rule-preset-ansanloms@${version}/dist/index.ts" README.md
+          ! grep -E 'textlint-rule-preset-ansanloms@[^/]+/dist/index\.ts' README.md | grep -Fv "@${version}/dist/index.ts"
