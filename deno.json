@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/denoland/deno/refs/heads/main/cli/schemas/config-file.v1.json",
   "version": "0.0.1",
-  "exclude": ["dist/", "examples/"],
+  "exclude": ["examples/"],
   "fmt": {
     "proseWrap": "preserve"
   },
@@ -14,18 +14,12 @@
   "imports": {
     "@std/assert": "jsr:@std/assert@1.0.19",
     "@textlint/kernel": "npm:@textlint/kernel@15.8.0",
-    "@textlint/textlint-plugin-markdown": "npm:@textlint/textlint-plugin-markdown@15.8.0",
-    "textlint-rule-preset-ja-technical-writing": "npm:textlint-rule-preset-ja-technical-writing@12.0.2",
-    "textlint-rule-preset-ja-spacing": "npm:textlint-rule-preset-ja-spacing@3.0.3",
-    "textlint-rule-preset-jtf-style": "npm:textlint-rule-preset-jtf-style@3.0.3",
-    "@textlint-ja/textlint-rule-preset-ai-writing": "npm:@textlint-ja/textlint-rule-preset-ai-writing@1.7.0",
-    "@proofdict/textlint-rule-proofdict": "npm:@proofdict/textlint-rule-proofdict@3.1.2"
+    "@textlint/textlint-plugin-markdown": "npm:@textlint/textlint-plugin-markdown@15.8.0"
   },
   "tasks": {
     "test": "deno test -A --parallel --coverage",
     "check": "deno check **/*.ts",
     "lint": "deno lint && deno fmt --check",
-    "fix": "deno lint --fix && deno fmt",
-    "build": "deno run --allow-read=deno.json,index.ts --allow-write=dist scripts/build-dist.ts"
+    "fix": "deno lint --fix && deno fmt"
   }
 }

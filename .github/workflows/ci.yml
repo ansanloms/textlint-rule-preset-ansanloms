@@ -20,11 +20,6 @@ jobs:
       - run: deno ci
       - run: deno task lint
       - run: deno task check
-      - run: deno task build
-      - name: Verify dist/index.ts is up to date
-        run: |
-          git diff --exit-code dist/index.ts
-          test -z "$(git status --porcelain --untracked-files=all dist)"
       - run: deno task test
       - name: Smoke test with examples
         working-directory: examples
@@ -41,5 +36,5 @@ jobs:
         shell: bash
         run: |
           version="$(jq -r .version deno.json)"
-          grep -Fq "textlint-rule-preset-ansanloms@${version}/dist/index.ts" README.md
-          ! grep -E 'textlint-rule-preset-ansanloms@[^/]+/dist/index\.ts' README.md | grep -Fv "@${version}/dist/index.ts"
+          grep -Fq "textlint-rule-preset-ansanloms@${version}/index.ts" README.md
+          ! grep -E 'textlint-rule-preset-ansanloms@[^/]+/index\.ts' README.md | grep -Fv "@${version}/index.ts"

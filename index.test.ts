@@ -78,21 +78,12 @@ Deno.test("proofdict の options には dictGlob が含まれず dictURL を持�
   assertNotEquals(proofdictConfig.dictURL, undefined);
 });
 
-Deno.test("dist/index.ts の rules / rulesConfig は index.ts と一致する", async () => {
-  const dist = (await import("./dist/index.ts")).default;
-  assertEquals(
-    new Set(Object.keys(dist.rules)),
-    new Set(Object.keys(rules)),
-  );
-  assertEquals(dist.rulesConfig, rulesConfig);
-});
-
-Deno.test("dist/index.ts の import specifier はすべて npm: である", async () => {
-  const distSource = await Deno.readTextFile(
-    new URL("./dist/index.ts", import.meta.url),
+Deno.test("deps.ts の import specifier はすべて npm: である", async () => {
+  const depsSource = await Deno.readTextFile(
+    new URL("./deps.ts", import.meta.url),
   );
   const specifiers = [
-    ...distSource.matchAll(
+    ...depsSource.matchAll(
       /\b(?:from|import)\s+"([^"]+)"|import\(\s*"([^"]+)"\s*\)/g,
     ),
   ].map((m) => m[1] ?? m[2]);

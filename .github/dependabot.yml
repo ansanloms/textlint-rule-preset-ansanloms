@@ -6,11 +6,13 @@ updates:
       - "/examples"
     schedule:
       interval: weekly
-    # /examples no longer pins the 5 preset packages (they come through
-    # dist/index.ts), but some packages (e.g. the textlint-related 15.x
-    # packages) still appear in both / and /examples. Group updates by
-    # dependency name so that any such shared package is bumped in both
-    # directories within a single PR.
+    # The 5 preset packages are pinned as `npm:` specifiers in deps.ts, which
+    # Dependabot's deno support does not read (only deno.json imports +
+    # deno.lock), so they are not managed here. The deno entry covers the
+    # deno.json deps: test deps at the root, textlint itself in /examples.
+    # Currently no dependency name is shared between / and /examples, so this
+    # grouping is a no-op; it is kept so that a package added to both
+    # directories later is bumped in a single PR.
     groups:
       deno-dependencies:
         group-by: dependency-name

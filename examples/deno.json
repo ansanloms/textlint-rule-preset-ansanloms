@@ -9,7 +9,7 @@
   },
   "imports": {
     "textlint": "npm:textlint@15.8.0",
-    "@ansanloms/textlint-rule-preset-ansanloms": "../dist/index.ts"
+    "@ansanloms/textlint-rule-preset-ansanloms": "../index.ts"
   },
   "tasks": {
     "textlint": {

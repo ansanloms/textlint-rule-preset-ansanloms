@@ -16,10 +16,10 @@ textlint は preset の入れ子 (ある preset の `rules` の中に別の pres
 `{ rules, rulesConfig }` として export する。
 
 deno で開発し、npm / JSR には publish しない。配布物はタグ打ちした
-`dist/index.ts` (`deno task build` の生成物、`imports` の 5 パッケージが
-`npm:` specifier に解決済みの自己完結ファイル) で、jsDelivr 経由で直接
-import して利用する (「使い方」参照)。`dist/index.ts` は `npm:` specifier に
-依存するため deno 専用であり、Node では利用できない。
+`index.ts` + `deps.ts` (5 パッケージを `npm:` specifier で import する
+自己完結ファイル) で、jsDelivr 経由で直接 import して利用する
+(「使い方」参照)。`deps.ts` は `npm:` specifier に依存するため deno 専用で
+あり、Node では利用できない。
 
 ## 含まれるルール
 
@@ -75,14 +75,14 @@ textlint はルールパッケージを `require.resolve` で解決し、import 
 示さないため、必ず絶対パスを渡すこと。
 
 消費側の `deno.json` に、この preset の import map エントリを追加する。
-`dist/index.ts` は依存パッケージを `npm:` specifier で解決するため、
+`deps.ts` は依存パッケージを `npm:` specifier で解決するため、
 消費側で個別のバージョンを指定する必要はない。
 
 ```json
 {
   "imports": {
     "textlint": "npm:textlint@15.8.0",
-    "@ansanloms/textlint-rule-preset-ansanloms": "https://cdn.jsdelivr.net/gh/ansanloms/textlint-rule-preset-ansanloms@0.0.1/dist/index.ts"
+    "@ansanloms/textlint-rule-preset-ansanloms": "https://cdn.jsdelivr.net/gh/ansanloms/textlint-rule-preset-ansanloms@0.0.1/index.ts"
   }
 }
 ```
@@ -179,46 +179,39 @@ deno task test    # テスト (coverage 付き)
 deno task check   # 型チェック
 deno task lint    # deno lint && deno fmt --check
 deno task fix     # deno lint --fix && deno fmt
-deno task build   # dist/index.ts を生成する
 ```
 
-外部依存は `deno.json` の `imports` で管理する。Dependabot が `deno.json` と
-`deno.lock` を更新する。
+外部依存のうち、テスト用の依存 (`@std/assert`, `@textlint/kernel`,
+`@textlint/textlint-plugin-markdown`) は `deno.json` の `imports` で管理する。
+Dependabot が `deno.json` と `deno.lock` を更新する。
 
-`dist/index.ts` は `deno task build` (`scripts/build-dist.ts`) が `index.ts`
-から生成する、git 管理下の生成物。`index.ts` の bare specifier (Dependabot が
-更新できる形) のうち `deno.json` の `imports` で `npm:` に解決するものを、
-その値へテキスト置換するだけで、`deno bundle` は使わない (依存先が
-kuromoji の辞書ファイル読み込みや `__dirname` を使っており、単一ファイルへの
-bundle と相性が悪いため)。この置換により、消費側は 5 パッケージそれぞれの
-バージョンを指定する必要がなくなる。CI では `deno task build` を再実行して
-`dist/index.ts` に差分が無いこと、および README 中の jsDelivr URL の
-バージョンが `deno.json` の `version` と一致していることをチェックする。
+この preset がフラット化する 5 パッケージのバージョンは `deps.ts` に
+`npm:` specifier で直接書く。Dependabot はこの `.ts` ファイルを読まないため
+更新されない。バージョンを上げる場合は `deps.ts` を手で書き換えたうえで
+`deno task test` を実行すること。
 
-`deno task build` を実行したら、続けて `examples/` で `deno install` を
-実行し、`examples/deno.lock` を更新すること。`examples/deno.lock` の
-npm 系エントリは `examples/deno.json` の直接の `imports` ではなく
-`dist/index.ts` 経由で解決されるため、`dist/index.ts` の変更 (5 パッケージの
-バージョン更新等) は `examples/deno.lock` にも反映が必要になる。
-`dist/index.ts` と `examples/deno.lock` は両方コミットすること。Dependabot が
-この 5 パッケージのいずれかを更新する PR も、CI を通すにはこの手動での
-再ビルドとコミットが別途必要になる。
+`deps.ts` を書き換えたら、続けて `examples/` で `deno install` を実行し、
+`examples/deno.lock` を更新すること。`examples/deno.lock` の npm 系エントリは
+`examples/deno.json` の直接の `imports` ではなく `index.ts` (経由の
+`deps.ts`) から解決されるため、`deps.ts` の変更 (5 パッケージのバージョン
+更新等) は `examples/deno.lock` にも反映が必要になる。`deps.ts` と
+`examples/deno.lock` は両方コミットすること。
+
+CI では README 中の jsDelivr URL のバージョンが `deno.json` の `version`
+と一致していることをチェックする。
 
 ## リリース手順
 
 1. `deno.json` の `version` を更新する。同時に、この README の「使い方
    (Deno)」の import map の例にある
    `@ansanloms/textlint-rule-preset-ansanloms` の jsDelivr URL
-   (`@<バージョン>/dist/index.ts`) も同じバージョンに更新する。古いバージョン
+   (`@<バージョン>/index.ts`) も同じバージョンに更新する。古いバージョン
    のまま残すと、コピー & ペーストした利用者が古いタグを参照し続けることになる。
-2. `deno task build` を実行し、続けて `examples/` で `deno install` を
-   実行して `examples/deno.lock` を更新する。生成された `dist/index.ts` と
-   更新された `examples/deno.lock` を両方コミットする。
-3. 同じ値でタグを打って push する。
+2. 同じ値でタグを打って push する。
 
 タグを打つと jsDelivr の `@<バージョン>` 指定 (上記の import map 参照)
-から新しいバージョンの `dist/index.ts` を取得できるようになる。この preset
-は npm / JSR に publish しないため、GitHub Release は作らない。
+から新しいバージョンの `index.ts` (と `deps.ts`) を取得できるようになる。
+この preset は npm / JSR に publish しないため、GitHub Release は作らない。
 
 ## ライセンス
 
