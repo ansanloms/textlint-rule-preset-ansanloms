@@ -98,7 +98,10 @@ const overrides = {
   // 文体は no-mix-dearu-desumasu が唯一決める。1.1.1.本文 は多数決で敬体を要求し矛盾する指摘を出すため無効化する。
   "1.1.1.本文": false,
   "1.1.3.箇条書き": false,
-  "2.1.5.カタカナ": true,
+  // JTF 外来語辞書は「プラットフォーム → プラットホーム」「インタフェース → インターフェイス」
+  // のような表記を要求し、一般的な技術文書の表記と合わないため無効のままにする
+  // (upstream 既定も false。openapi-template では true にしていた)。
+  "2.1.5.カタカナ": false,
   "3.1.1.全角文字と半角文字の間": false,
   "4.2.6.ハイフン(-)": false,
   "4.2.7.コロン(：)": false,
@@ -113,6 +116,11 @@ const overrides = {
     dictURL: "https://azu.github.io/proof-dictionary/",
     autoUpdateInterval: 1000,
   },
+
+  // https://github.com/textlint-ja/textlint-rule-preset-ai-writing
+  // 「**ラベル**: 説明」の形の箇条書きを許容するため太字ラベルの検出だけを止める。
+  // 装飾絵文字の検出 (ListItem の本文全体を対象にする) は残す。
+  "no-ai-list-formatting": { disableBoldListItems: true },
 };
 
 const rulesConfig = {

@@ -61,10 +61,6 @@ Deno.test("openapi-template 由来の options 上書きが反映されている"
     false,
   );
   assertEquals(
-    (rulesConfig as Record<string, unknown>)["2.1.5.カタカナ"],
-    true,
-  );
-  assertEquals(
     (rulesConfig as Record<string, unknown>)[
       "ja-space-between-half-and-full-width"
     ],
@@ -73,6 +69,20 @@ Deno.test("openapi-template 由来の options 上書きが反映されている"
   assertEquals(
     (rulesConfig as Record<string, unknown>)["1.1.1.本文"],
     false,
+  );
+});
+
+// この 2 つは openapi-template の値とは異なる、この preset 独自の判断
+// (2.1.5.カタカナ は openapi-template では true、no-ai-list-formatting は
+// openapi-template に存在しない) であり、意図しない変更に気付けるよう固定する。
+Deno.test("この preset 独自の上書きが反映されている", () => {
+  assertEquals(
+    (rulesConfig as Record<string, unknown>)["2.1.5.カタカナ"],
+    false,
+  );
+  assertEquals(
+    rulesConfig["no-ai-list-formatting"],
+    { disableBoldListItems: true },
   );
 });
 
@@ -290,4 +300,38 @@ Deno.test("@textlint/kernel での lint 統合", async (t) => {
 
     assertEquals(result.messages.length, 0);
   });
+
+  await t.step(
+    "太字ラベルの箇条書きは検出されず、絵文字装飾の箇条書きは検出される",
+    async () => {
+      const dirtyText = `# テスト
+
+- **ラベル**: 説明である。
+- ✅ 完了である。
+`;
+
+      const result = await kernel.lintText(dirtyText, {
+        ext: ".md",
+        filePath: "test4.md",
+        plugins: [
+          // deno-lint-ignore no-explicit-any
+          { pluginId: "markdown", plugin: markdownPlugin as any },
+        ],
+        // deno-lint-ignore no-explicit-any
+        rules: kernelRules as any,
+      });
+
+      const listFormattingMessages = result.messages.filter((m) =>
+        m.ruleId === "no-ai-list-formatting"
+      );
+      assertEquals(
+        listFormattingMessages.some((m) => m.line === 3),
+        false,
+      );
+      assertEquals(
+        listFormattingMessages.some((m) => m.line === 4),
+        true,
+      );
+    },
+  );
 });
