@@ -20,6 +20,8 @@
     "test": "deno test -A --parallel --coverage",
     "check": "deno check **/*.ts",
     "lint": "deno lint && deno fmt --check",
-    "fix": "deno lint --fix && deno fmt"
+    "fix": "deno lint --fix && deno fmt",
+    "update": "deno run --no-lock --allow-env --allow-read --allow-write=. --allow-net --allow-run=git,deno jsr:@molt/cli --no-lock deps/*/mod.ts deps/@*/*/mod.ts",
+    "update:write": "deno task update --write"
   }
 }

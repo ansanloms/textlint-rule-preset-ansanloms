@@ -78,21 +78,56 @@ Deno.test("proofdict の options には dictGlob が含まれず dictURL を持�
   assertNotEquals(proofdictConfig.dictURL, undefined);
 });
 
-Deno.test("deps.ts の import specifier はすべて npm: である", async () => {
-  const depsSource = await Deno.readTextFile(
-    new URL("./deps.ts", import.meta.url),
-  );
-  const specifiers = [
-    ...depsSource.matchAll(
+function extractSpecifiers(source: string): string[] {
+  return [
+    ...source.matchAll(
       /\b(?:from|import)\s+"([^"]+)"|import\(\s*"([^"]+)"\s*\)/g,
     ),
   ].map((m) => m[1] ?? m[2]);
+}
+
+async function readDepsModPaths(): Promise<
+  { specifiers: string[]; modPaths: string[] }
+> {
+  const depsSource = await Deno.readTextFile(
+    new URL("./deps.ts", import.meta.url),
+  );
+  const specifiers = extractSpecifiers(depsSource);
+  const modPaths = specifiers.filter((s) => s.startsWith("./deps/"));
+  return { specifiers, modPaths };
+}
+
+Deno.test("deps.ts は ./deps/ 配下の mod.ts を 5 つ import する", async () => {
+  const { specifiers, modPaths } = await readDepsModPaths();
   assertEquals(specifiers.length > 0, true);
   for (const specifier of specifiers) {
     assertEquals(
-      specifier.startsWith("npm:"),
+      specifier.startsWith("./deps/"),
       true,
-      `specifier "${specifier}" は npm: で始まっていない`,
+      `specifier "${specifier}" は ./deps/ で始まっていない`,
+    );
+  }
+  assertEquals(
+    modPaths.length,
+    5,
+    "deps.ts が import する mod.ts が 5 ファイルではない",
+  );
+});
+
+Deno.test("deps/**/mod.ts は 1 ファイルにつき npm: specifier を 1 つだけ持つ", async () => {
+  const { modPaths } = await readDepsModPaths();
+  for (const path of modPaths) {
+    const source = await Deno.readTextFile(new URL(path, import.meta.url));
+    const specifiers = extractSpecifiers(source);
+    assertEquals(
+      specifiers.length,
+      1,
+      `${path} の specifier 数が 1 ではない`,
+    );
+    assertEquals(
+      specifiers[0].startsWith("npm:"),
+      true,
+      `${path} の specifier "${specifiers[0]}" は npm: で始まっていない`,
     );
   }
 });

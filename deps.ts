@@ -1,17 +1,19 @@
-// この preset が依存する 5 パッケージのバージョンをここに固定する。`npm:`
-// specifier で書くことで、この deps.ts (および import 元の index.ts) は
-// リモート (jsDelivr 等) から直接 fetch されたときも import map を必要とせず
-// 自己完結する。
+// この preset が依存する 5 パッケージのバージョンは、1 パッケージ 1 ファイルで
+// `deps/<パッケージ名>/mod.ts` に `npm:` specifier での再 export として置く。
+// この deps.ts はそれらを import して集約し、unwrapDefault で剥がすだけで、
+// バージョン自体はここには書かない。`npm:` specifier で書くことで、
+// 配布物 (deps/ 以下 + この deps.ts + index.ts) はリモート (jsDelivr 等) から
+// 直接 fetch されたときも import map を必要とせず自己完結する。
 //
-// Dependabot は `.ts` ファイルを読まないため、この 5 パッケージのバージョンは
-// Dependabot による自動更新の対象外。バージョンを上げる場合は、このファイルを
-// 手動で書き換える。
+// バージョンを上げる場合は `deps/<パッケージ名>/mod.ts` を書き換える。molt
+// (`deno task update` / `deno task update:write`) にこれらのファイルを
+// 直接指定すれば自動更新できる (README の「依存の更新」参照)。
 
-import jaTechMod from "npm:textlint-rule-preset-ja-technical-writing@12.0.2";
-import jaSpacingMod from "npm:textlint-rule-preset-ja-spacing@3.0.3";
-import jtfMod from "npm:textlint-rule-preset-jtf-style@3.0.3";
-import aiWritingMod from "npm:@textlint-ja/textlint-rule-preset-ai-writing@1.7.0";
-import proofdictMod from "npm:@proofdict/textlint-rule-proofdict@3.1.2";
+import jaTechMod from "./deps/textlint-rule-preset-ja-technical-writing/mod.ts";
+import jaSpacingMod from "./deps/textlint-rule-preset-ja-spacing/mod.ts";
+import jtfMod from "./deps/textlint-rule-preset-jtf-style/mod.ts";
+import aiWritingMod from "./deps/@textlint-ja/textlint-rule-preset-ai-writing/mod.ts";
+import proofdictMod from "./deps/@proofdict/textlint-rule-proofdict/mod.ts";
 
 export type PresetModule = {
   rules: Record<string, unknown>;

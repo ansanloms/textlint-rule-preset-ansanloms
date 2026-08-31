@@ -16,10 +16,10 @@ textlint は preset の入れ子 (ある preset の `rules` の中に別の pres
 `{ rules, rulesConfig }` として export する。
 
 deno で開発し、npm / JSR には publish しない。配布物はタグ打ちした
-`index.ts` + `deps.ts` (5 パッケージを `npm:` specifier で import する
-自己完結ファイル) で、jsDelivr 経由で直接 import して利用する
-(「使い方」参照)。`deps.ts` は `npm:` specifier に依存するため deno 専用で
-あり、Node では利用できない。
+`index.ts` + `deps.ts` + `deps/` 以下の各パッケージの再 export ファイル
+(5 パッケージをそれぞれ `npm:` specifier で import する自己完結ファイル群)
+で、jsDelivr 経由で直接 import して利用する (「使い方」参照)。`deps/` 以下は
+`npm:` specifier に依存するため deno 専用であり、Node では利用できない。
 
 ## 含まれるルール
 
@@ -75,8 +75,9 @@ textlint はルールパッケージを `require.resolve` で解決し、import 
 示さないため、必ず絶対パスを渡すこと。
 
 消費側の `deno.json` に、この preset の import map エントリを追加する。
-`deps.ts` は依存パッケージを `npm:` specifier で解決するため、
-消費側で個別のバージョンを指定する必要はない。
+依存パッケージは `deps/**/mod.ts` が `npm:` specifier で解決するため
+(`deps.ts` はそれらを相対 import で集約するだけ)、消費側で個別のバージョンを
+指定する必要はない。
 
 ```json
 {
@@ -181,24 +182,44 @@ deno task lint    # deno lint && deno fmt --check
 deno task fix     # deno lint --fix && deno fmt
 ```
 
-外部依存のうち、テスト用の依存 (`@std/assert`, `@textlint/kernel`,
-`@textlint/textlint-plugin-markdown`) は `deno.json` の `imports` で管理する。
-Dependabot が `deno.json` と `deno.lock` を更新する。
+外部依存のうち、`deno.json` の `imports` (テスト用の依存 `@std/assert`,
+`@textlint/kernel`, `@textlint/textlint-plugin-markdown`) はリポジトリ
+ルートで `deno outdated --update` (Deno 2.1 以降の組み込みコマンド) で
+更新する。`examples/deno.json` の `textlint` は、`examples/` が workspace
+のメンバーではなく独自の `deno.json` / `deno.lock` を持つため、`examples/`
+に移動して同じコマンドを実行する。
 
-この preset がフラット化する 5 パッケージのバージョンは `deps.ts` に
-`npm:` specifier で直接書く。Dependabot はこの `.ts` ファイルを読まないため
-更新されない。バージョンを上げる場合は `deps.ts` を手で書き換えたうえで
-`deno task test` を実行すること。
+この preset がフラット化する 5 パッケージは `deps.ts` に直接バージョンを
+書かず、1 パッケージ 1 ファイルで `deps/<パッケージ名>/mod.ts` に
+`npm:` specifier での再 export として置く (例:
+`deps/textlint-rule-preset-ja-technical-writing/mod.ts`)。`deps.ts` は
+これらのファイルを import して集約し、CJS/ESM 相互運用のネストを剥がす
+だけで、バージョン自体は持たない。
 
-`deps.ts` を書き換えたら、続けて `examples/` で `deno install` を実行し、
-`examples/deno.lock` を更新すること。`examples/deno.lock` の npm 系エントリは
-`examples/deno.json` の直接の `imports` ではなく `index.ts` (経由の
-`deps.ts`) から解決されるため、`deps.ts` の変更 (5 パッケージのバージョン
-更新等) は `examples/deno.lock` にも反映が必要になる。`deps.ts` と
-`examples/deno.lock` は両方コミットすること。
+### 依存の更新
 
-CI では README 中の jsDelivr URL のバージョンが `deno.json` の `version`
-と一致していることをチェックする。
+`deps/<パッケージ名>/mod.ts` のバージョンを上げる手順は次のとおり。
+
+1. `deno task update` で更新候補を確認する (書き換えは行わない)。
+2. `deno task update:write` で `deps/**/mod.ts` を書き換える。
+3. `deno task check` を実行する (`deno.lock` が再生成される)。
+4. `deno task test` を実行する。
+5. `cd examples && deno install` を実行する (`examples/deno.lock` が
+   再生成される)。
+6. `deps/`, `deno.lock`, `examples/deno.lock` をコミットする。
+
+`deno task update` / `deno task update:write` は [molt](https://jsr.io/@molt/cli)
+に `deps/**/mod.ts` を直接指定して実行する。molt は `index.ts` からの相対
+import を辿らないため、更新対象のファイルを明示的に渡す必要がある。
+また molt は Deno 2 の lockfile (v5) を読めず、素の状態で実行すると
+molt 自身の依存 (`@molt/cli` 等) がプロジェクトの `deno.lock` に混入して
+しまうため、`--no-lock` を付けて lockfile への書き込みを止めている。
+`deno.lock` はこの手順の 3 (`deno task check`) で改めて再生成する。
+
+`examples/deno.lock` の npm 系エントリは `examples/deno.json` の直接の
+`imports` ではなく `index.ts` (経由の `deps.ts`、`deps/**/mod.ts`) から
+解決されるため、依存バージョンの更新は `examples/deno.lock` にも反映が
+必要になる。
 
 ## リリース手順
 
@@ -207,11 +228,16 @@ CI では README 中の jsDelivr URL のバージョンが `deno.json` の `vers
    `@ansanloms/textlint-rule-preset-ansanloms` の jsDelivr URL
    (`@<バージョン>/index.ts`) も同じバージョンに更新する。古いバージョン
    のまま残すと、コピー & ペーストした利用者が古いタグを参照し続けることになる。
-2. 同じ値でタグを打って push する。
+2. タグを打つ前に `deno task lint` / `deno task check` / `deno task test`
+   と、`examples/` で `deno task textlint .` が想定どおり動くことを確認する
+   (CI は別途導入するまで手動)。
+3. 同じ値でタグを打って push する。
 
 タグを打つと jsDelivr の `@<バージョン>` 指定 (上記の import map 参照)
-から新しいバージョンの `index.ts` (と `deps.ts`) を取得できるようになる。
-この preset は npm / JSR に publish しないため、GitHub Release は作らない。
+から新しいバージョンの `index.ts`、`deps.ts`、`deps/**/mod.ts`
+(いずれもタグ付けした `index.ts` を基準にした相対パスで fetch される)
+を取得できるようになる。この preset は npm / JSR に publish しないため、
+GitHub Release は作らない。
 
 ## ライセンス
 
