@@ -31,13 +31,14 @@ deno で開発し、npm / JSR には publish しない。配布物はタグ打�
 | ja-spacing           | `ja-space-around-link`                 | `{ before: true, after: true }`                                                              |
 | jtf-style            | `1.1.1.本文`                           | `false` (無効化)                                                                             |
 | jtf-style            | `1.1.3.箇条書き`                       | `false` (無効化)                                                                             |
-| jtf-style            | `2.1.5.カタカナ`                       | `true` (有効化)                                                                              |
+| jtf-style            | `2.1.5.カタカナ`                       | `false` (無効化)                                                                             |
 | jtf-style            | `3.1.1.全角文字と半角文字の間`         | `false` (無効化)                                                                             |
 | jtf-style            | `4.2.6.ハイフン(-)`                    | `false` (無効化)                                                                             |
 | jtf-style            | `4.2.7.コロン(：)`                     | `false` (無効化)                                                                             |
 | jtf-style            | `4.3.1.丸かっこ（）`                   | `false` (無効化)                                                                             |
 | jtf-style            | `4.3.2.大かっこ［］`                   | `false` (無効化)                                                                             |
 | jtf-style            | `4.3.7.山かっこ<>`                     | `false` (無効化)                                                                             |
+| ai-writing           | `no-ai-list-formatting`                | `false` (無効化)                                                                             |
 | proofdict            | `proofdict`                            | `{ dictURL: "https://azu.github.io/proof-dictionary/", autoUpdateInterval: 1000 }`           |
 
 `1.1.2.見出し` は `rulesConfig` の値 (upstream 既定の `true`) を変えず有効のままにしつつ、autofix だけを抑止している。このルールは見出し末尾の句点を検出するが、`--fix` では消させたくないため、`index.ts` が rule に渡す `context` の `fixer` を no-op に差し替えたラッパーで包んでいる (`rulesConfig` の値は変えていないので、上の一覧には出てこない)。
@@ -56,6 +57,10 @@ JTF の `4.3.1.丸かっこ` / `4.3.2.大かっこ` / `4.2.7.コロン` は半�
 
 `proofdict` の元設定 (openapi-template) には消費側 cwd 相対の `dictGlob` (独自辞書ファイルの指定) も含まれていたが、preset 側は消費側のファイル構成に依存できないため、この preset には含めない。必要な場合は利用側で options を丸ごと置換して追加する (「設定の上書き」参照)。`autoUpdateInterval: 1000` は openapi-template で使っていた値をそのまま引き継いでいる。
 
+`2.1.5.カタカナ` は JTF 外来語辞書が「プラットホーム」「インターフェイス」「フォルダー」のような長音を要求し、長音を省略する技術文書の慣行と逆のため無効のまま (upstream 既定も false)。
+
+`no-ai-list-formatting` は「**ラベル**: 説明」の形の箇条書きを許容する方針のため無効化。
+
 ## 使い方 (Deno)
 
 textlint はルールパッケージを `require.resolve` で解決し、import map (`deno.json` の `imports`) を見ない。そのため deno の import map で疑似的に `textlint-rule-preset-ansanloms` という名前を用意しても textlint 側からは見つけられない。この preset は `--rules-base-directory <絶対パス>` で指定したディレクトリの下に `textlint-rule-preset-ansanloms/index.js` という実ファイルを置くことで解決させる。`--rules-base-directory` に相対パスを渡すと `./` が落ちて裸のパッケージ名として扱われ、`== No rules found, textlint hasn't done anything ==` と表示されて終了コード 1 で終わる。このメッセージはパスが原因であることを示さないため、必ず絶対パスを渡すこと。
@@ -66,7 +71,7 @@ textlint はルールパッケージを `require.resolve` で解決し、import 
 {
   "imports": {
     "textlint": "npm:textlint@15.8.0",
-    "@ansanloms/textlint-rule-preset-ansanloms": "https://cdn.jsdelivr.net/gh/ansanloms/textlint-rule-preset-ansanloms@0.0.1/index.ts"
+    "@ansanloms/textlint-rule-preset-ansanloms": "https://cdn.jsdelivr.net/gh/ansanloms/textlint-rule-preset-ansanloms@0.0.2/index.ts"
   }
 }
 ```
@@ -134,6 +139,8 @@ module.exports = {
 `proofdict` は `dictGlob` だけを追記するのではなく `dictURL` / `autoUpdateInterval` も含めて書き直している点に注意。置換なので、書かなかったフィールドはこの preset の既定値ではなく単に消える。
 
 `no-doubled-joshi` のようにこの preset が `false` (無効化) にしているルールを再有効化する場合、`true` ではなく options オブジェクト (既定値でよければ `{}`) を渡す必要がある。textlint の config-loader はユーザ設定側の `true` を preset 側の `rulesConfig` の値 (ここでは `false`) に置き換えてしまうため、`true` を書いても無効化されたままになる。
+
+同じ理由で、upstream の preset が既定で無効にしている rule を消費側の `.textlintrc` で `"preset-jtf-style": { "2.1.5.カタカナ": true }` のように `true` にしても有効にならない (textlint は `true` を preset 側の既定値に置き換える)。この preset は平坦化後の値を焼き込んでいるため、この preset の `rulesConfig` で `false` になっている rule を再有効化するときも上記と同じく options オブジェクト (`{}`) を渡す。
 
 ## 開発
 
