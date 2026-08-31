@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: deno
+    directories:
+      - "/"
+      - "/examples"
+    schedule:
+      interval: weekly
+    # The 5 preset packages are pinned as `npm:` specifiers in deps/**/mod.ts,
+    # which Dependabot's deno support does not read (only deno.json imports +
+    # deno.lock), so they are not managed here; they are updated with molt
+    # (`deno task update`) instead. The deno entry covers the deno.json deps:
+    # test deps at the root, textlint itself in /examples. The group keeps
+    # any package appearing in both directories in a single PR. The lint
+    # plugin pinned in deno.json and examples/deno.json's lint.plugins
+    # (jsr:@aireone/deno-lint-curly) is managed by neither Dependabot nor
+    # molt and is bumped by hand in both places.
+    groups:
+      deno-dependencies:
+        group-by: dependency-name
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
