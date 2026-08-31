@@ -38,7 +38,7 @@ deno で開発し、npm / JSR には publish しない。配布物はタグ打�
 | jtf-style            | `4.3.1.丸かっこ（）`                   | `false` (無効化)                                                                             |
 | jtf-style            | `4.3.2.大かっこ［］`                   | `false` (無効化)                                                                             |
 | jtf-style            | `4.3.7.山かっこ<>`                     | `false` (無効化)                                                                             |
-| ai-writing           | `no-ai-list-formatting`                | `false` (無効化)                                                                             |
+| ai-writing           | `no-ai-list-formatting`                | `{ disableBoldListItems: true }`                                                             |
 | proofdict            | `proofdict`                            | `{ dictURL: "https://azu.github.io/proof-dictionary/", autoUpdateInterval: 1000 }`           |
 
 `1.1.2.見出し` は `rulesConfig` の値 (upstream 既定の `true`) を変えず有効のままにしつつ、autofix だけを抑止している。このルールは見出し末尾の句点を検出するが、`--fix` では消させたくないため、`index.ts` が rule に渡す `context` の `fixer` を no-op に差し替えたラッパーで包んでいる (`rulesConfig` の値は変えていないので、上の一覧には出てこない)。
@@ -59,7 +59,7 @@ JTF の `4.3.1.丸かっこ` / `4.3.2.大かっこ` / `4.2.7.コロン` は半�
 
 `2.1.5.カタカナ` は JTF 外来語辞書が「プラットフォーム → プラットホーム」「インタフェース → インターフェイス」のような表記を要求し、一般的な技術文書の表記と合わないため無効のまま (upstream 既定も false。openapi-template では true にしていた)。
 
-`no-ai-list-formatting` は「**ラベル**: 説明」の形の箇条書きを許容する方針のため無効化。
+`no-ai-list-formatting` は「**ラベル**: 説明」の形の箇条書きを許容する方針のため `disableBoldListItems: true` で太字ラベルの検出だけを止める。箇条書き先頭の装飾絵文字 (✅ 🚀 等) の検出は残す。
 
 ## 使い方 (Deno)
 
