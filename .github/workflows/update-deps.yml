@@ -1,0 +1,112 @@
+name: Update dependencies
+
+# 手動起動のみ。schedule は設定しない (更新頻度が低く、GITHUB_TOKEN で作った
+# PR は on: pull_request の CI を起動しないため、自動化する利点が薄い)。
+# この workflow が作った PR で CI を走らせるには、PR を close して reopen するか、
+# ブランチに手動で push する。
+# create-pull-request が PR を作るには、リポジトリ設定で
+# "Allow GitHub Actions to create and approve pull requests" を有効にしておく。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# 同時に 2 回起動されると同じブランチへの push を取り合うため、後発を優先する
+concurrency:
+  group: update-deps
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      # 上げたばかりの (未レビューの) upstream コードを test / textlint で実行するため、
+      # 書込権限の token を .git/config に残さない。push は create-pull-request が
+      # token 入力から自前で認証する
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+      - name: Bump versions in deps/**/mod.ts with molt
+        run: deno task update:write
+      # deps/ に差分が無ければ以降は何もしない (lock の再生成は冪等でなく、
+      # 版が上がっていなくても差分が出るため)
+      - name: Check whether any dependency was bumped
+        id: bumped
+        run: |
+          if [ -n "$(git status --porcelain deps)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "no dependency update"
+          fi
+      # 旧版のエントリが残らないよう lock は削除してから再生成する
+      - name: Regenerate lockfiles
+        if: steps.bumped.outputs.changed == 'true'
+        run: |
+          rm -f deno.lock examples/deno.lock
+          deno task check
+          deno task test
+          deno task lint
+      - name: Regenerate examples lockfile
+        if: steps.bumped.outputs.changed == 'true'
+        working-directory: examples
+        run: deno install
+      - name: Verify lockfiles are consistent
+        if: steps.bumped.outputs.changed == 'true'
+        run: |
+          deno ci
+          (cd examples && deno ci)
+      # CI (ci.yml) と同じ検査。GITHUB_TOKEN で作る PR では CI が自動起動しないため、
+      # PR を作る前にここで通しておく
+      - name: Smoke test with examples
+        if: steps.bumped.outputs.changed == 'true'
+        working-directory: examples
+        run: |
+          deno lint
+          deno fmt --check
+          set +e
+          deno task textlint . -f json > result.json
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
+            echo "textlint exited with $status"
+            exit "$status"
+          fi
+          # proofdict fetches its dictionary over the network and intermittently reports nothing, so it is not asserted here.
+          jq -e '[.[] | .messages[] | select(.ruleId == "ansanloms/no-mix-dearu-desumasu")] | length > 0' result.json
+      - name: Verify only expected files changed
+        if: steps.bumped.outputs.changed == 'true'
+        run: |
+          changed="$(git status --porcelain)"
+          echo "$changed"
+          unexpected="$(echo "$changed" | grep -Ev '^.. (deps/.*/mod\.ts|deno\.lock|examples/deno\.lock)$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "unexpected changes:"
+            echo "$unexpected"
+            exit 1
+          fi
+      - uses: peter-evans/create-pull-request@v8
+        if: steps.bumped.outputs.changed == 'true'
+        with:
+          token: ${{ github.token }}
+          branch: molt/update-deps
+          commit-message: "build(deps): deps/ 配下の依存の版を更新"
+          title: "build(deps): deps/ 配下の依存の版を更新"
+          body: |
+            molt (`deno task update:write`) による依存の版上げ。
+            `deno.lock` と `examples/deno.lock` は削除してから再生成しているため、範囲指定の transitive 依存も再解決され、deps/ 以外の版が変わることがある。
+            lint / check / test / examples のスモークテストはこの workflow 内で通している。
+
+            GITHUB_TOKEN で作成した PR のため CI は自動では走らない。
+            close / reopen するか、このブランチに push して CI を起動すること。
+          labels: dependencies
+          add-paths: |
+            deps/**/mod.ts
+            deno.lock
+            examples/deno.lock

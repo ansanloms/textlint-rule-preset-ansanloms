@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+      - run: deno ci
+      - run: deno task lint
+      - run: deno task check
+      - run: deno task test
+      - name: Smoke test with examples
+        working-directory: examples
+        run: |
+          deno ci
+          deno lint
+          deno fmt --check
+          set +e
+          deno task textlint . -f json > result.json
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
+            echo "textlint exited with $status"
+            exit "$status"
+          fi
+          # proofdict fetches its dictionary over the network and intermittently reports nothing, so it is not asserted here.
+          jq -e '[.[] | .messages[] | select(.ruleId == "ansanloms/no-mix-dearu-desumasu")] | length > 0' result.json
+      - name: Verify working tree is unchanged
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"
