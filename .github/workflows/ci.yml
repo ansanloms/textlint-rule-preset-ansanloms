@@ -41,3 +41,15 @@ jobs:
         run: |
           git status --porcelain
           test -z "$(git status --porcelain)"
+      - name: Verify README version is in sync
+        shell: bash
+        run: |
+          version="$(jq -r .version deno.json)"
+          if ! grep -Fq "textlint-rule-preset-ansanloms@${version}/index.ts" README.md; then
+            echo "README.md does not reference version ${version}"
+            exit 1
+          fi
+          if grep -E 'textlint-rule-preset-ansanloms@[^/]+/index\.ts' README.md | grep -Fv "@${version}/index.ts"; then
+            echo "README.md references a stale version"
+            exit 1
+          fi
