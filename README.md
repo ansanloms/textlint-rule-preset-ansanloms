@@ -100,11 +100,15 @@ textlint を実行するタスク (`deno.json`) では `--rules-base-directory` 
 }
 ```
 
-`$INIT_CWD` は `deno task` を起動したディレクトリなので、このタスクはプロジェクトルート (`deno.json` のあるディレクトリ) から実行すること。サブディレクトリから起動すると rules base の解決に失敗する。
+`$INIT_CWD` は `deno task` を起動したシェルの cwd を指す。プロジェクトルートで直接 `deno task` を起動する場合は `$INIT_CWD` でよいが、サブディレクトリから起動すると rules base の解決に失敗する。`deno task --cwd <dir>` で別ディレクトリの `deno.json` を使う場合、`$INIT_CWD` は `--cwd` の値ではなく起動元のシェルの cwd になるため、`--rules-base-directory $PWD/textlint` のように `$PWD` (この場合 `--cwd` の値) を使うこと。
 
-この preset を import すると、import した時点で消費側の作業ディレクトリに `.cache/` ディレクトリ (proofdict が使う `kvs-node-localstorage` の保存先) が作成されるため、利用側の `.gitignore` に `.cache/` を追加すること。
+`import` すると proofdict の保存先 `.cache/` (`kvs-node-localstorage`) が生成される。生成先は環境により異なり、cwd に出る場合 (テストや直接実行) と Deno の npm キャッシュ内に出る場合 (`npm:` 経由の `deno task --cwd` 実行で実測) がある。cwd に出たときにコミットしないよう、予防的に `.gitignore` に `.cache/` を入れておく。
 
 具体例は `examples/` を参照。
+
+### トラブルシュート
+
+`== No rules found, textlint hasn't done anything ==` (終了コード 1) が出る場合、textlint は preset のロード失敗を握り潰してこう表示する。原因は次のいずれかであることが多い: (a) `--rules-base-directory` が相対パス、(b) ラッパーディレクトリ名やファイル名の誤り、(c) import map の alias の URL に到達できない (タグ未作成、ネットワーク不通)。切り分けは、alias の URL を `curl` 等で直接取得できるか確認し、`deno eval 'import("<alias>")'` 相当でラッパーを直接 import してエラーを表示させる (textlint 経由では見えない)。
 
 ## 設定の上書き
 
