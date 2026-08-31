@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/denoland/deno/refs/heads/main/cli/schemas/config-file.v1.json",
+  "fmt": {
+    "proseWrap": "preserve"
+  },
+  "lint": {
+    "rules": { "tags": ["recommended"] },
+    "plugins": ["jsr:@aireone/deno-lint-curly@0.2.0"]
+  },
+  "imports": {
+    "textlint": "npm:textlint@15.8.0",
+    "@ansanloms/textlint-rule-preset-ansanloms": "../index.ts"
+  },
+  "tasks": {
+    "textlint": {
+      "description": "Run textlint command",
+      "command": "deno --quiet run --allow-env --allow-read --allow-sys --allow-write --allow-net textlint --rules-base-directory $INIT_CWD/textlint"
+    },
+    "lint": "deno task textlint .",
+    "fix": "deno task textlint . --fix"
+  }
+}
