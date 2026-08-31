@@ -12,13 +12,65 @@
 
 import { aiWriting, jaSpacing, jaTech, jtf, proofdictRule } from "./deps.ts";
 
-const rules = {
+// 1.1.2.見出し は見出し末尾の句点を検出する。autofix は効かせず検出だけにするため、
+// rule に渡す context の fixer を no-op に差し替えて fix 情報そのものを作らせない
+// (fixer プロパティを外すだけでは message に fix が残り、フォーマッタが fixable と表示する)。
+const noopFixer: unknown = new Proxy({}, { get: () => () => undefined });
+function withoutFix(linter: unknown): unknown {
+  if (typeof linter !== "function") {
+    return linter;
+  }
+  return (context: object, options?: unknown) => {
+    const wrapped = new Proxy(context, {
+      // report 等はアロー関数フィールドで this を閉じ込めており、かつ Object.freeze
+      // された own property なので bind すると Proxy の不変条件に違反する。getter
+      // (Syntax / RuleError 等) は Reflect.get の第 3 引数 target で実 context を
+      // this にして評価するため、関数値も含めそのまま返す。
+      get(target, prop) {
+        if (prop === "fixer") {
+          return noopFixer;
+        }
+        return Reflect.get(target, prop, target);
+      },
+    });
+    return (linter as (ctx: object, opts?: unknown) => unknown)(
+      wrapped,
+      options,
+    );
+  };
+}
+
+// 下で "1.1.2.見出し" を条件付きで代入するため、rules は Record<string, unknown>
+// として宣言する (代入前の時点では未確定のキーへの代入を型で許可するため)。
+const rules: Record<string, unknown> = {
   ...jaTech.rules,
   ...jaSpacing.rules,
   ...jtf.rules,
   ...aiWriting.rules,
   proofdict: proofdictRule,
 };
+
+// jtf.rules は Record<string, unknown> 型で、1.1.2.見出し の実体が
+// { linter, fixer } を持つオブジェクトであることは型では保証されない。
+// upstream で形状が変わった場合に診断しづらいエラーにならないよう、ここで検証する。
+// 形状が想定外のときは rules["1.1.2.見出し"] へ代入せず、上の spread (...jtf.rules)
+// で入った値をそのまま残す (undefined を上書きで挿入しない)。
+const headingRule = jtf.rules["1.1.2.見出し"];
+if (
+  typeof headingRule === "object" && headingRule !== null &&
+  "linter" in headingRule &&
+  typeof (headingRule as { linter: unknown }).linter === "function"
+) {
+  rules["1.1.2.見出し"] = {
+    linter: withoutFix((headingRule as { linter: unknown }).linter),
+  };
+} else if (typeof headingRule === "function") {
+  rules["1.1.2.見出し"] = { linter: withoutFix(headingRule) };
+} else {
+  console.warn(
+    'textlint-rule-preset-ansanloms: jtf.rules["1.1.2.見出し"] has an unexpected shape; leaving the rule as provided by upstream',
+  );
+}
 
 // この preset が独自に上書きする options。フラット化元の rulesConfig と分けて
 // 定義することで、以下の「上書き先のルールが実在するか」のチェックが
@@ -43,6 +95,8 @@ const overrides = {
   "ja-space-around-link": { before: true, after: true },
 
   // https://github.com/textlint-ja/textlint-rule-preset-JTF-style
+  // 文体は no-mix-dearu-desumasu が唯一決める。1.1.1.本文 は多数決で敬体を要求し矛盾する指摘を出すため無効化する。
+  "1.1.1.本文": false,
   "1.1.3.箇条書き": false,
   "2.1.5.カタカナ": true,
   "3.1.1.全角文字と半角文字の間": false,
@@ -88,3 +142,5 @@ if (unknownOverrideKeys.length > 0) {
 export default { rules, rulesConfig };
 export { rules, rulesConfig };
 export const sources = { jaTech, jaSpacing, jtf, aiWriting } as const;
+// テストから直接呼び出して挙動を検証できるよう export する。
+export { withoutFix };

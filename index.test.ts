@@ -1,7 +1,7 @@
-import { assertEquals, assertNotEquals } from "@std/assert";
+import { assertEquals, assertNotEquals, assertStrictEquals } from "@std/assert";
 import { TextlintKernel } from "@textlint/kernel";
 import markdownPluginMod from "@textlint/textlint-plugin-markdown";
-import { rules, rulesConfig, sources } from "./index.ts";
+import { rules, rulesConfig, sources, withoutFix } from "./index.ts";
 
 // CJS/ESM 相互運用で default export が `{ default: { Processor } }` の形で
 // 1 段ネストされるため、テストでも `.default` を 1 段剥がす。
@@ -70,6 +70,69 @@ Deno.test("openapi-template 由来の options 上書きが反映されている"
     ],
     { space: "always" },
   );
+  assertEquals(
+    (rulesConfig as Record<string, unknown>)["1.1.1.本文"],
+    false,
+  );
+});
+
+Deno.test("1.1.2.見出し は upstream 既定 (true) のまま有効で、fixer を持たない", () => {
+  assertEquals(
+    (rulesConfig as Record<string, unknown>)["1.1.2.見出し"],
+    true,
+  );
+  const value = (rules as Record<string, unknown>)["1.1.2.見出し"];
+  assertEquals(typeof value === "object" && value !== null, true);
+  assertEquals("linter" in (value as Record<string, unknown>), true);
+  assertEquals("fixer" in (value as Record<string, unknown>), false);
+});
+
+// 実際の @textlint/kernel の TextlintRuleContextImpl は fixer / Syntax を
+// prototype 上の getter (アクセサ) として持ち、report はインスタンスの
+// アロー関数フィールドとして持つ。その形を模した上で constructor 末尾で
+// Object.freeze(this) する (実際の実装と同じ凍結の仕方)。プレーンなデータ
+// プロパティのまま freeze すると、withoutFix の Proxy が fixer に別の値を
+// 返す際に Proxy の不変条件 (frozen own data property は同じ値を返す必要が
+// ある) に違反してしまうため、production の形に合わせる必要がある。
+class StubContext {
+  static syntax = {};
+  static realFixer = { removeRange: () => "real" };
+  report = () => {};
+  constructor() {
+    Object.freeze(this);
+  }
+  get fixer() {
+    return StubContext.realFixer;
+  }
+  get Syntax() {
+    return StubContext.syntax;
+  }
+}
+
+Deno.test("withoutFix は options を linter に転送し、fixer を no-op にする", () => {
+  let seen: { context: unknown; options: unknown } | undefined;
+  const stub = (context: unknown, options?: unknown) => {
+    seen = { context, options };
+    return {};
+  };
+  const wrapped = withoutFix(stub) as (
+    context: unknown,
+    options?: unknown,
+  ) => unknown;
+
+  const context = new StubContext();
+
+  wrapped(context, { dummy: true });
+
+  assertEquals(seen?.options, { dummy: true });
+  const wrappedContext = seen?.context as {
+    fixer: { removeRange: (...args: unknown[]) => unknown };
+    Syntax: unknown;
+    report: unknown;
+  };
+  assertEquals(wrappedContext.fixer.removeRange(0, 1), undefined);
+  assertStrictEquals(wrappedContext.Syntax, StubContext.syntax);
+  assertEquals(typeof wrappedContext.report, "function");
 });
 
 Deno.test("proofdict の options には dictGlob が含まれず dictURL を持つ", () => {
@@ -172,6 +235,41 @@ Deno.test("@textlint/kernel での lint 統合", async (t) => {
       assertEquals(ruleIds.has("no-hankaku-kana"), true);
     },
   );
+
+  await t.step("見出し末尾の句点が 1.1.2.見出し で検出される", async () => {
+    const dirtyText = `# 見出しである。
+
+本文である。
+`;
+
+    // 見出し末尾の句点が検出され、message に fix が含まれず (autofix が
+    // 効かない)、fixText でもテキストが変化しないことを確認する。
+    const options = {
+      ext: ".md",
+      filePath: "test3.md",
+      plugins: [
+        // deno-lint-ignore no-explicit-any
+        { pluginId: "markdown", plugin: markdownPlugin as any },
+      ],
+      // deno-lint-ignore no-explicit-any
+      rules: kernelRules as any,
+    };
+
+    const result = await kernel.lintText(dirtyText, options);
+
+    const ruleIds = new Set(result.messages.map((m) => m.ruleId));
+    assertEquals(ruleIds.has("1.1.2.見出し"), true);
+
+    const headingMessage = result.messages.find((m) =>
+      m.ruleId === "1.1.2.見出し"
+    );
+    assertEquals(headingMessage?.fix, undefined);
+    assertEquals(headingMessage?.message.includes("句点"), true);
+
+    // autofix (句点の削除) が効かないことを fixText でも確認する。
+    const fixResult = await kernel.fixText(dirtyText, options);
+    assertEquals(fixResult.output, dirtyText);
+  });
 
   await t.step("である調で統一された整った文は 0 件になる", async () => {
     const cleanText = `# テスト
