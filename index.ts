@@ -33,10 +33,7 @@ function withoutFix(linter: unknown): unknown {
         return Reflect.get(target, prop, target);
       },
     });
-    return (linter as (ctx: object, opts?: unknown) => unknown)(
-      wrapped,
-      options,
-    );
+    return (linter as (ctx: object, opts?: unknown) => unknown)(wrapped, options);
   };
 }
 
@@ -57,7 +54,8 @@ const rules: Record<string, unknown> = {
 // で入った値をそのまま残す (undefined を上書きで挿入しない)。
 const headingRule = jtf.rules["1.1.2.見出し"];
 if (
-  typeof headingRule === "object" && headingRule !== null &&
+  typeof headingRule === "object" &&
+  headingRule !== null &&
   "linter" in headingRule &&
   typeof (headingRule as { linter: unknown }).linter === "function"
 ) {
@@ -111,7 +109,7 @@ const overrides = {
 
   // https://github.com/proofdict/proofdict/tree/master/packages/@proofdict/textlint-rule-proofdict
   // dictGlob (消費側 cwd 相対の辞書ファイル) はこの preset には存在しないため含めない。
-  // 必要な場合は利用側で options を丸ごと置換して追加する (README 参照)。
+  // 必要な場合は利用側で options を丸ごと置換して追加する (README の「設定の上書き」節参照)。
   proofdict: {
     dictURL: "https://azu.github.io/proof-dictionary/",
     autoUpdateInterval: 1000,
@@ -136,14 +134,12 @@ const rulesConfig = {
 // 存在しなくなることがある。textlint は import エラーを握りつぶして
 // 「ルールが見つからない」という診断しづらいエラーにしてしまうため、ここで
 // throw はせず、原因を特定しやすいよう console.warn で知らせるに留める。
-const unknownOverrideKeys = Object.keys(overrides).filter(
-  (key) => !(key in rules),
-);
+const unknownOverrideKeys = Object.keys(overrides).filter((key) => !(key in rules));
 if (unknownOverrideKeys.length > 0) {
   console.warn(
-    `textlint-rule-preset-ansanloms: rulesConfig overrides for unknown rules (an upstream package may have renamed or removed the rule): ${
-      unknownOverrideKeys.join(", ")
-    }`,
+    `textlint-rule-preset-ansanloms: rulesConfig overrides for unknown rules (an upstream package may have renamed or removed the rule): ${unknownOverrideKeys.join(
+      ", ",
+    )}`,
   );
 }
 

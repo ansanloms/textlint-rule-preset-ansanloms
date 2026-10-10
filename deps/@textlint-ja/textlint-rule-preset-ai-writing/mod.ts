@@ -1,1 +1,0 @@
-export { default } from "npm:@textlint-ja/textlint-rule-preset-ai-writing@1.7.0";
