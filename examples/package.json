@@ -7,6 +7,6 @@
   },
   "devDependencies": {
     "@ansanloms/textlint-rule-preset-ansanloms": "file:..",
-    "textlint": "^15.8.0"
+    "textlint": "15.8.0"
   }
 }

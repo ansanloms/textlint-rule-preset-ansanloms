@@ -85,6 +85,8 @@ npm run compile
 
 `dist/` は tsc の出力である。ソースを変えたら `npm run compile` を実行してコミットする。CI が `dist/` の鮮度を検査する。
 
+`.cache/` は proofdict の辞書キャッシュで、git 管理外である。
+
 Node 24 は開発環境の要件 (`.node-version`) で、配布物は素の ESM なので利用側に Node 24 を要求しない。
 
 `package.json` に `build` / `prepare` 等の lifecycle script を置かない。git 依存として install されるときに npm がビルドを走らせ、利用側で失敗するため。
@@ -94,6 +96,8 @@ Node 24 は開発環境の要件 (`.node-version`) で、配布物は素の ESM 
 Dependabot (npm) が `package.json` と lockfile を更新する。rule パッケージの更新で `rules` の数が変わるとテスト (77 件) が落ちるので、その PR でテストの期待値と overrides を見直す。
 
 5 つの rule パッケージ (`textlint-rule-preset-ja-technical-writing`、`textlint-rule-preset-jtf-style`、`textlint-rule-preset-ja-spacing`、`@textlint-ja/textlint-rule-preset-ai-writing`、`@proofdict/textlint-rule-proofdict`) は正確な版で固定している。git 依存で install する利用者はこの repo の lockfile を読まないため、CI で検証した版だけを配る必要がある。更新は Dependabot の PR で CI (rules 件数のテスト) を通してから取り込む。
+
+devDependencies も含め全依存を正確な版で固定している (`.npmrc` の `save-exact`)。
 
 Dependabot の `typescript` 更新で `dist/` の出力が変わり鮮度検査が落ちた場合は、PR ブランチで `npm run compile` を実行して `dist/` をコミットする。
 
