@@ -98,6 +98,7 @@ Dependabot (npm) が `package.json` と lockfile を更新する。rule パッ�
 5 つの rule パッケージ (`textlint-rule-preset-ja-technical-writing`、`textlint-rule-preset-jtf-style`、`textlint-rule-preset-ja-spacing`、`@textlint-ja/textlint-rule-preset-ai-writing`、`@proofdict/textlint-rule-proofdict`) は正確な版で固定している。git 依存で install する利用者はこの repo の lockfile を読まないため、CI で検証した版だけを配る必要がある。更新は Dependabot の PR で CI (rules 件数のテスト) を通してから取り込む。
 
 devDependencies も含め全依存を正確な版で固定している (`.npmrc` の `save-exact`)。
+`ignore-scripts` で install 時に依存の lifecycle script を実行しない (`npm run` の本体 script には影響しない)。`min-release-age` で公開から 7 日未満の版を新規に解決しない (lockfile に固定済みの版には効かない)。
 
 Dependabot の `typescript` 更新で `dist/` の出力が変わり鮮度検査が落ちた場合は、PR ブランチで `npm run compile` を実行して `dist/` をコミットする。
 
