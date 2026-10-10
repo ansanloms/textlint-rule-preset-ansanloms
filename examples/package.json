@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "lint": "textlint .",
+    "fix": "textlint . --fix"
+  },
+  "devDependencies": {
+    "@ansanloms/textlint-rule-preset-ansanloms": "file:..",
+    "textlint": "15.8.0"
+  }
+}
